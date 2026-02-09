@@ -1,0 +1,71 @@
+name: Compilar Plugin (Sin Maven)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Descargar tu código del repositorio
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    # 2. Instalar Java 17 (Estándar actual)
+    - name: Configurar JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # 3. Descargar las dependencias (Nukkit y EconomyAPI)
+    - name: Descargar Dependencias (Libs)
+      run: |
+        mkdir libs
+        
+        # Descargar Nukkit (Cloudburst) - Usamos la última build exitosa
+        echo "Descargando Nukkit..."
+        wget -O libs/nukkit.jar https://github.com/PetteriM1/NukkitPetteriM1Edition/releases/download/4299/Nukkit-PM1E.jar
+        
+        # Descargar EconomyAPI
+        # NOTA: Este link descarga una versión compilada común. 
+        # Si usas una versión modificada, cambia este enlace.
+        echo "Descargando EconomyAPI..."
+        wget -O libs/EconomyAPI.jar https://cloudburstmc.org/resources/economyapi.14/download
+
+    # 4. Compilar el código usando javac
+    - name: Compilar Código Java
+      run: |
+        # Crear carpeta para las clases compiladas
+        mkdir classes
+        
+        # Buscar todos los archivos .java en tu carpeta src y listarlos en sources.txt
+        find src -name "*.java" > sources.txt
+        
+        # Compilar
+        # -d classes: Destino de la compilación
+        # -cp "libs/*": Incluye los jars descargados en el ClassPath
+        # @sources.txt: Compila todos los archivos encontrados
+        javac -d classes -cp "libs/*" @sources.txt
+
+    # 5. Crear el archivo .jar final
+    - name: Empaquetar JAR
+      run: |
+        # Copiar el plugin.yml y config.yml a la carpeta de clases
+        cp src/main/resources/*.yml classes/
+        
+        # Crear el JAR final
+        # -c: crear, -v: verbose, -f: archivo
+        # -C classes .: Cambia al directorio classes e incluye todo
+        jar cvf AdvancedKits.jar -C classes .
+
+    # 6. Subir el resultado para que lo puedas descargar
+    - name: Subir Artefacto
+      uses: actions/upload-artifact@v4
+      with:
+        name: AdvancedKits-Plugin
+        path: AdvancedKits.jar
