@@ -1,3 +1,5 @@
 # KitsNK
 
-Advanced Kit plugin for NukkitX/Nukkit MOT/Nukkit PM1E
+Advanced Kit plugin for Nukkit PM1E
+
+ONLY TESTED ON NUKKIT MOT AND NUKKIT PM1E
