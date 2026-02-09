@@ -3,12 +3,17 @@ package me.tripulante.advancedkits;
 import cn.nukkit.Player;
 import cn.nukkit.command.Command;
 import cn.nukkit.command.CommandSender;
+import cn.nukkit.event.EventHandler;
+import cn.nukkit.event.Listener;
+import cn.nukkit.event.player.PlayerFormRespondedEvent;
 import cn.nukkit.form.element.ElementButton;
 import cn.nukkit.form.element.ElementInput;
 import cn.nukkit.form.element.ElementLabel;
 import cn.nukkit.form.element.ElementToggle;
+import cn.nukkit.form.response.FormResponse;
 import cn.nukkit.form.response.FormResponseCustom;
 import cn.nukkit.form.response.FormResponseSimple;
+import cn.nukkit.form.window.FormWindow;
 import cn.nukkit.form.window.FormWindowCustom;
 import cn.nukkit.form.window.FormWindowSimple;
 import cn.nukkit.item.Item;
@@ -18,17 +23,25 @@ import me.onebone.economyapi.EconomyAPI;
 
 import java.io.File;
 import java.util.*;
+import java.util.function.Consumer;
 
-public class Main extends PluginBase {
+public class Main extends PluginBase implements Listener {
 
     private File kitsFolder;
     private Config cooldownsConfig;
-    // Mapa temporal para guardar items durante la creación (Jugador -> Items)
+    // Mapa temporal para guardar items (Jugador -> Items)
     private final Map<String, Map<Integer, Item>> tempInventory = new HashMap<>();
+    
+    // SISTEMA PROPIO DE HANDLERS PARA FORMULARIOS
+    // Guardamos ID del Formulario -> Acción a ejecutar
+    private final Map<Integer, Consumer<FormResponse>> formCallbacks = new HashMap<>();
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        
+        // Registramos los eventos (Importante para que funcionen las UIs)
+        getServer().getPluginManager().registerEvents(this, this);
         
         // Carpeta de kits
         kitsFolder = new File(getDataFolder() + "/kits");
@@ -36,15 +49,38 @@ public class Main extends PluginBase {
             kitsFolder.mkdirs();
         }
 
-        // Archivo de cooldowns
         cooldownsConfig = new Config(new File(getDataFolder(), "cooldowns.yml"), Config.YAML);
         
-        this.getLogger().info("§aAdvancedKits by Tripulante1404 activado.");
+        this.getLogger().info("§aAdvancedKits by Tripulante1404 activado correctamente.");
     }
 
     @Override
     public void onDisable() {
         if (cooldownsConfig != null) cooldownsConfig.save();
+    }
+
+    // --- ESCUCHADOR DE EVENTOS (NUEVO) ---
+    @EventHandler
+    public void onFormResponse(PlayerFormRespondedEvent event) {
+        Player player = event.getPlayer();
+        int formId = event.getFormID();
+        FormResponse response = event.getResponse();
+
+        // Si el formulario cerrado tiene un callback registrado, lo ejecutamos
+        if (formCallbacks.containsKey(formId)) {
+            // Ejecutamos la lógica guardada
+            if (response != null) {
+                formCallbacks.get(formId).accept(response);
+            }
+            // Limpiamos la memoria
+            formCallbacks.remove(formId);
+        }
+    }
+
+    // Método auxiliar para enviar formularios y guardar su acción
+    public void sendForm(Player player, FormWindow window, Consumer<FormResponse> handler) {
+        int id = player.showFormWindow(window);
+        formCallbacks.put(id, handler);
     }
 
     @Override
@@ -57,13 +93,11 @@ public class Main extends PluginBase {
 
         if (command.getName().equalsIgnoreCase("kit")) {
             
-            // 1. Comando base: /kit (Abrir lista)
             if (args.length == 0) {
                 openKitListUI(player);
                 return true;
             }
 
-            // 2. Crear kit: /kit create
             if (args[0].equalsIgnoreCase("create")) {
                 if (!player.hasPermission("advancedkits.admin")) return false;
 
@@ -72,13 +106,11 @@ public class Main extends PluginBase {
                     return true;
                 }
                 
-                // Guardamos inventario temporalmente
                 tempInventory.put(player.getName(), new HashMap<>(player.getInventory().getContents()));
-                openKitForm(player, null); // null indica modo CREAR
+                openKitForm(player, null);
                 return true;
             }
 
-            // 3. Editar kit: /kit edit
             if (args[0].equalsIgnoreCase("edit")) {
                 if (!player.hasPermission("advancedkits.admin")) return false;
                 openEditSelectorUI(player);
@@ -88,9 +120,8 @@ public class Main extends PluginBase {
         return true;
     }
 
-    // --- SECCIÓN DE GUIS (FORMULARIOS) ---
+    // --- SECCIÓN DE GUIS ---
 
-    // UI 1: Lista de Kits (Para reclamar)
     public void openKitListUI(Player player) {
         FormWindowSimple form = new FormWindowSimple("§l§bKits Disponibles", "§7Selecciona un kit para ver detalles:");
         
@@ -101,25 +132,26 @@ public class Main extends PluginBase {
             }
         }
 
-        form.setHandler((p, response) -> {
+        // Usamos nuestro método sendForm en lugar de setHandler
+        sendForm(player, form, (response) -> {
             if (response instanceof FormResponseSimple) {
                 String kitName = ((FormResponseSimple) response).getClickedButton().getText();
-                openKitConfirmUI(p, kitName);
+                openKitConfirmUI(player, kitName);
             }
         });
-        player.showFormWindow(form);
     }
 
-    // UI 2: Confirmación (Detalles, Precio, Ítems)
     public void openKitConfirmUI(Player player, String kitName) {
-        Config kitCfg = new Config(new File(kitsFolder, kitName + ".yml"), Config.YAML);
+        File f = new File(kitsFolder, kitName + ".yml");
+        if (!f.exists()) return;
+        
+        Config kitCfg = new Config(f, Config.YAML);
         
         double price = kitCfg.getDouble("price", 0);
         int cooldown = kitCfg.getInt("cooldown", 0);
         boolean useEco = kitCfg.getBoolean("use-economy", false);
         List<String> itemStrings = kitCfg.getStringList("items");
 
-        // Construir descripción
         StringBuilder content = new StringBuilder();
         content.append("§eInformación del Kit:\n");
         content.append("§fCooldown: §b").append(cooldown > 0 ? cooldown + " min" : "Sin espera").append("\n");
@@ -143,24 +175,20 @@ public class Main extends PluginBase {
         }
 
         FormWindowSimple form = new FormWindowSimple("§lConfirmar Reclamo", content.toString());
-        
-        // BOTÓN DONE / CONFIRMAR
         form.addButton(new ElementButton("§l§aCONFIRMAR RECLAMO\n§r§8[Click Aquí]"));
         form.addButton(new ElementButton("§l§cVOLVER"));
 
-        form.setHandler((p, response) -> {
+        sendForm(player, form, (response) -> {
             if (response instanceof FormResponseSimple) {
                 if (((FormResponseSimple) response).getClickedButtonId() == 0) {
-                    attemptClaimKit(p, kitName, kitCfg);
+                    attemptClaimKit(player, kitName, kitCfg);
                 } else {
-                    openKitListUI(p);
+                    openKitListUI(player);
                 }
             }
         });
-        player.showFormWindow(form);
     }
 
-    // UI 3: Selector para Editar
     public void openEditSelectorUI(Player player) {
         FormWindowSimple form = new FormWindowSimple("§lEditar Kit", "§7Selecciona el kit a editar:");
         File[] files = kitsFolder.listFiles((dir, name) -> name.endsWith(".yml"));
@@ -169,24 +197,21 @@ public class Main extends PluginBase {
                 form.addButton(new ElementButton(file.getName().replace(".yml", "")));
             }
         }
-        form.setHandler((p, response) -> {
+        
+        sendForm(player, form, (response) -> {
             if (response instanceof FormResponseSimple) {
                 String kitName = ((FormResponseSimple) response).getClickedButton().getText();
-                openKitForm(p, kitName); // Modo EDITAR
+                openKitForm(player, kitName);
             }
         });
-        player.showFormWindow(form);
     }
 
-    // UI 4: Formulario Maestro (Sirve para Crear y Editar)
     public void openKitForm(Player player, String editingKitName) {
         boolean isEdit = (editingKitName != null);
         String title = isEdit ? "Editar Kit: " + editingKitName : "Crear Nuevo Kit";
         
         FormWindowCustom form = new FormWindowCustom(title);
         
-        // Valores por defecto
-        String defName = "";
         String defPerm = "";
         String defCool = "0";
         String defPrice = "0";
@@ -194,56 +219,47 @@ public class Main extends PluginBase {
 
         if (isEdit) {
             Config cfg = new Config(new File(kitsFolder, editingKitName + ".yml"), Config.YAML);
-            defName = editingKitName;
             defPerm = cfg.getString("permission", "");
             defCool = String.valueOf(cfg.getInt("cooldown", 0));
             defPrice = String.valueOf(cfg.getDouble("price", 0));
             defEco = cfg.getBoolean("use-economy", false);
-            
-            // En modo edición no dejamos cambiar el nombre para no romper el archivo, o lo tratamos como "Solo lectura"
             form.addElement(new ElementLabel("§eEditando kit: " + editingKitName));
         } else {
             form.addElement(new ElementInput("Nombre del Kit (Único)", "Ej: Vip"));
         }
 
-        form.addElement(new ElementInput("Permiso (Vacío = Gratis para todos)", "Ej: kit.vip", defPerm));
+        form.addElement(new ElementInput("Permiso (Vacío = Gratis)", "Ej: kit.vip", defPerm));
         form.addElement(new ElementInput("Cooldown (Minutos)", "0", defCool));
         form.addElement(new ElementInput("Precio", "0", defPrice));
         form.addElement(new ElementToggle("Activar cobro (EconomyAPI)", defEco));
         
-        // En FormWindowCustom, el botón de abajo siempre es "Submit/Enviar", actúa como "DONE"
-        
-        form.setHandler((p, response) -> {
+        sendForm(player, form, (response) -> {
             if (response instanceof FormResponseCustom) {
                 FormResponseCustom data = (FormResponseCustom) response;
                 int i = 0;
                 
-                String name = isEdit ? editingKitName : data.getInputResponse(i++); // Si es edit, saltamos el input de nombre
-                // Si estamos editando, el índice 0 era el Label, así que el input del permiso es el siguiente
+                String name = isEdit ? editingKitName : data.getInputResponse(i++); 
                 if (isEdit) i++; 
 
-                String perm = data.getInputResponse(isEdit ? 1 : 1); // Ajuste de índice
+                String perm = data.getInputResponse(isEdit ? 1 : 1); 
                 String cooldown = data.getInputResponse(isEdit ? 2 : 2);
                 String price = data.getInputResponse(isEdit ? 3 : 3);
                 boolean eco = data.getToggleResponse(isEdit ? 4 : 4);
 
                 if (!isEdit) {
-                    // Validar nombre al crear
                     if (name == null || name.trim().isEmpty()) {
-                        p.sendMessage("§cDebes poner un nombre.");
+                        player.sendMessage("§cDebes poner un nombre.");
                         return;
                     }
                     if (new File(kitsFolder, name + ".yml").exists()) {
-                        p.sendMessage(getMessage("kit-exists"));
+                        player.sendMessage(getMessage("kit-exists"));
                         return;
                     }
                 }
 
-                saveKit(p, name, perm, cooldown, price, eco, isEdit);
+                saveKit(player, name, perm, cooldown, price, eco, isEdit);
             }
         });
-
-        player.showFormWindow(form);
     }
 
     // --- LÓGICA INTERNA ---
@@ -251,13 +267,16 @@ public class Main extends PluginBase {
     private void saveKit(Player p, String name, String perm, String cdStr, String prStr, boolean eco, boolean isEdit) {
         Config kitCfg = new Config(new File(kitsFolder, name + ".yml"), Config.YAML);
         
-        kitCfg.set("permission", perm);
-        kitCfg.set("cooldown", Integer.parseInt(cdStr.isEmpty() ? "0" : cdStr));
-        kitCfg.set("price", Double.parseDouble(prStr.isEmpty() ? "0" : prStr));
-        kitCfg.set("use-economy", eco);
+        try {
+            kitCfg.set("permission", perm);
+            kitCfg.set("cooldown", Integer.parseInt(cdStr.isEmpty() ? "0" : cdStr));
+            kitCfg.set("price", Double.parseDouble(prStr.isEmpty() ? "0" : prStr));
+            kitCfg.set("use-economy", eco);
+        } catch (NumberFormatException e) {
+            p.sendMessage("§cError: Cooldown o Precio deben ser números.");
+            return;
+        }
 
-        // Si es CREAR, guardamos los items del inventario temporal.
-        // Si es EDITAR, mantenemos los items viejos (no los tocamos).
         if (!isEdit && tempInventory.containsKey(p.getName())) {
             List<String> itemsList = new ArrayList<>();
             for (Item item : tempInventory.get(p.getName()).values()) {
@@ -272,14 +291,12 @@ public class Main extends PluginBase {
     }
 
     private void attemptClaimKit(Player p, String kitName, Config kitCfg) {
-        // 1. Permisos
         String perm = kitCfg.getString("permission");
         if (perm != null && !perm.isEmpty() && !p.hasPermission(perm)) {
             p.sendMessage(getMessage("no-permission"));
             return;
         }
 
-        // 2. Cooldown
         int cdMinutes = kitCfg.getInt("cooldown");
         if (cdMinutes > 0) {
             long lastUsed = cooldownsConfig.getLong(p.getName() + "." + kitName, 0);
@@ -294,7 +311,6 @@ public class Main extends PluginBase {
             }
         }
 
-        // 3. Economía
         if (kitCfg.getBoolean("use-economy") && getServer().getPluginManager().getPlugin("EconomyAPI") != null) {
             double price = kitCfg.getDouble("price");
             EconomyAPI eco = EconomyAPI.getInstance();
@@ -305,19 +321,21 @@ public class Main extends PluginBase {
             eco.reduceMoney(p, price);
         }
 
-        // 4. Entregar Items
         List<String> items = kitCfg.getStringList("items");
         for (String itemStr : items) {
-            String[] parts = itemStr.split(":");
-            Item item = Item.get(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
-            if (p.getInventory().canAddItem(item)) {
-                p.getInventory().addItem(item);
-            } else {
-                p.dropItem(item);
+            try {
+                String[] parts = itemStr.split(":");
+                Item item = Item.get(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+                if (p.getInventory().canAddItem(item)) {
+                    p.getInventory().addItem(item);
+                } else {
+                    p.dropItem(item);
+                }
+            } catch (Exception e) {
+                getLogger().warning("Error entregando item del kit " + kitName);
             }
         }
 
-        // Guardar cooldown
         if (cdMinutes > 0) {
             cooldownsConfig.set(p.getName() + "." + kitName, System.currentTimeMillis());
             cooldownsConfig.save();
