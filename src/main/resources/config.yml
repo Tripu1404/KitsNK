@@ -1,0 +1,45 @@
+# ==========================================
+#      Configuración de AdvancedKits
+# ==========================================
+# Autor: Tripulante1404
+# Versión: 2.0.0
+
+# Sección de Mensajes
+# Puedes usar el símbolo '§' para colores.
+# Algunos mensajes tienen variables (placeholders) que se reemplazan automáticamente:
+# %time% -> Tiempo restante del cooldown
+# %cost% -> Precio del kit
+# %kit%  -> Nombre del kit
+
+messages:
+  # El prefijo que aparece antes de cada mensaje (puedes dejarlo vacío si quieres)
+  prefix: "§l§b[AdvancedKits] §r"
+
+  # Mensaje cuando el jugador intenta reclamar un kit sin tener el permiso requerido
+  no-permission: "§cLo siento, no tienes permisos para reclamar este kit."
+
+  # Mensaje cuando el kit está en tiempo de espera
+  cooldown: "§c¡Espera! Debes aguardar %time% minutos para volver a usar este kit."
+
+  # Mensaje si el kit cuesta dinero y el jugador no tiene suficiente (Requiere EconomyAPI)
+  insufficient-money: "§cNo tienes suficiente dinero. Necesitas $%cost% para obtener este kit."
+
+  # Mensaje de éxito al recibir los items
+  kit-received: "§a¡Disfruta! Has recibido el kit %kit%."
+
+  # --- Mensajes Administrativos (/kit create, /kit edit) ---
+
+  # Cuando se crea un kit nuevo con éxito
+  kit-created: "§aEl kit %kit% ha sido creado y guardado en la carpeta /kits."
+
+  # Cuando se edita un kit existente
+  kit-updated: "§aEl kit %kit% ha sido actualizado correctamente."
+
+  # Error: Intentar crear un kit con un nombre que ya existe
+  kit-exists: "§cError: Ya existe un kit con ese nombre. Intenta con otro."
+
+  # Error: El kit buscado no se encuentra
+  kit-not-found: "§cEl kit especificado no existe."
+
+  # Error: Intentar crear un kit sin nada en el inventario
+  inventory-empty: "§cTu inventario está vacío. Ponte los items que quieres en el kit antes de usar el comando."
