@@ -1,4 +1,4 @@
-name: Compilar Plugin (Sin Maven)
+name: Compilar
 
 on:
   push:
