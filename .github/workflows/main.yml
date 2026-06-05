@@ -26,7 +26,7 @@ jobs:
         
         # Descargar Nukkit (Cloudburst) - Usamos la última build exitosa
         echo "Descargando Nukkit..."
-        wget -O libs/nukkit.jar https://github.com/PetteriM1/NukkitPetteriM1Edition/releases/download/4299/Nukkit-PM1E.jar
+        wget -O libs/nukkit.jar https://github.com/PetteriM1/NukkitPetteriM1Edition/releases/download/4413/Nukkit-PM1E.jar
         
         # Descargar EconomyAPI
         # NOTA: Este link descarga una versión compilada común. 
