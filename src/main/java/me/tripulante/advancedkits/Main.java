@@ -46,7 +46,7 @@ public class Main extends PluginBase implements Listener {
         }
 
         cooldownsConfig = new Config(new File(getDataFolder(), "cooldowns.yml"), Config.YAML);
-        this.getLogger().info("§aAdvancedKits enabled (Commands: /kit create|edit|delete)");
+        this.getLogger().info("§aAnchorKits enabled (Commands: /kit create|edit|delete)");
     }
 
     @Override
