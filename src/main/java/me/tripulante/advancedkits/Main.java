@@ -46,7 +46,7 @@ public class Main extends PluginBase implements Listener {
         }
 
         cooldownsConfig = new Config(new File(getDataFolder(), "cooldowns.yml"), Config.YAML);
-        this.getLogger().info("§aAdvancedKits activado (Comandos: /kit create|edit|delete)");
+        this.getLogger().info("§aAdvancedKits enabled (Commands: /kit create|edit|delete)");
     }
 
     @Override
@@ -75,7 +75,7 @@ public class Main extends PluginBase implements Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("§cSolo jugadores.");
+            sender.sendMessage("§cOnly players.");
             return true;
         }
         Player player = (Player) sender;
@@ -116,7 +116,7 @@ public class Main extends PluginBase implements Listener {
     }
 
     public void openKitListUI(Player player) {
-        FormWindowSimple form = new FormWindowSimple("§l§bKits Disponibles", "§7Selecciona un kit:");
+        FormWindowSimple form = new FormWindowSimple("§l§bAvailable Kits", "§7Select a kit:");
         File[] files = kitsFolder.listFiles((dir, name) -> name.endsWith(".yml"));
         if (files != null) {
             for (File file : files) {
@@ -145,12 +145,12 @@ public class Main extends PluginBase implements Listener {
         List<String> itemStrings = kitCfg.getStringList("items");
 
         StringBuilder content = new StringBuilder();
-        content.append("§eDetalles:\n§fCooldown: §b").append(cooldown).append("m\n");
-        content.append("§fPrecio: §a").append(useEco && price > 0 ? "$" + price : "Gratis").append("\n\n§eItems:\n§7");
+        content.append("§eDetails:\n§fCooldown: §b").append(cooldown).append("m\n");
+        content.append("§fPrice: §a").append(useEco && price > 0 ? "$" + price : "Free").append("\n\n§eItems:\n§7");
         
         int c = 0;
         for (String s : itemStrings) {
-            if (c++ > 4) { content.append("... y más.\n"); break; }
+            if (c++ > 4) { content.append("... and more.\n"); break; }
             try {
                 String[] p = s.split(":");
                 Item item = Item.get(Integer.parseInt(p[0]), Integer.parseInt(p[1]));
@@ -158,9 +158,9 @@ public class Main extends PluginBase implements Listener {
             } catch (Exception ignored) {}
         }
 
-        FormWindowSimple form = new FormWindowSimple("§lConfirmar", content.toString());
-        form.addButton(new ElementButton("§l§aRECLAMAR"));
-        form.addButton(new ElementButton("§l§cVOLVER"));
+        FormWindowSimple form = new FormWindowSimple("§lConfirm", content.toString());
+        form.addButton(new ElementButton("§l§aCLAIM"));
+        form.addButton(new ElementButton("§l§cBACK"));
 
         sendForm(player, form, (response) -> {
             if (response instanceof FormResponseSimple) {
@@ -174,7 +174,7 @@ public class Main extends PluginBase implements Listener {
     }
 
     public void openEditSelectorUI(Player player) {
-        FormWindowSimple form = new FormWindowSimple("§lEditar Kit", "§7Selecciona cual editar:");
+        FormWindowSimple form = new FormWindowSimple("§lEdit Kit", "§7Select which to edit:");
         File[] files = kitsFolder.listFiles((dir, name) -> name.endsWith(".yml"));
         if (files != null) {
             for (File file : files) {
@@ -189,19 +189,16 @@ public class Main extends PluginBase implements Listener {
         });
     }
 
-
     public void openDeleteSelectorUI(Player player) {
-        FormWindowSimple form = new FormWindowSimple("§l§cEliminar Kit", "§7Selecciona el kit a §cELIMINAR§7:");
+        FormWindowSimple form = new FormWindowSimple("§l§cDelete Kit", "§7Select the kit to §cDELETE§7:");
         File[] files = kitsFolder.listFiles((dir, name) -> name.endsWith(".yml"));
         if (files != null) {
             for (File file : files) {
-                // Mostramos los botones con un icono de advertencia o texto plano
                 form.addButton(new ElementButton("§c" + file.getName().replace(".yml", "")));
             }
         }
         sendForm(player, form, (response) -> {
             if (response instanceof FormResponseSimple) {
-                // Obtenemos el texto limpio (sin el color rojo §c)
                 String rawName = ((FormResponseSimple) response).getClickedButton().getText();
                 String kitName = rawName.replaceAll("§c", ""); 
                 openDeleteConfirmUI(player, kitName);
@@ -210,19 +207,19 @@ public class Main extends PluginBase implements Listener {
     }
 
     public void openDeleteConfirmUI(Player player, String kitName) {
-        FormWindowSimple form = new FormWindowSimple("§l§4¿ELIMINAR KIT?", 
-            "§c¡Atención!\n\nEstás a punto de borrar el kit: §l" + kitName + 
-            "\n\n§r§cEsta acción es permanente y no se puede deshacer.");
+        FormWindowSimple form = new FormWindowSimple("§l§4DELETE KIT?", 
+            "§cWarning!\n\nYou are about to delete the kit: §l" + kitName + 
+            "\n\n§r§cThis action is permanent and cannot be undone.");
             
-        form.addButton(new ElementButton("§l§4SÍ, ELIMINAR\n§r§8[Irreversible]")); // Botón 0
-        form.addButton(new ElementButton("§lCANCELAR")); // Botón 1
+        form.addButton(new ElementButton("§l§4YES, DELETE\n§r§8[Irreversible]")); 
+        form.addButton(new ElementButton("§lCANCEL")); 
 
         sendForm(player, form, (response) -> {
             if (response instanceof FormResponseSimple) {
                 if (((FormResponseSimple) response).getClickedButtonId() == 0) {
                     deleteKit(player, kitName);
                 } else {
-                    player.sendMessage("§eEliminación cancelada.");
+                    player.sendMessage("§eDeletion cancelled.");
                 }
             }
         });
@@ -230,7 +227,7 @@ public class Main extends PluginBase implements Listener {
 
     public void openKitForm(Player player, String editingKitName) {
         boolean isEdit = (editingKitName != null);
-        FormWindowCustom form = new FormWindowCustom(isEdit ? "Editar: " + editingKitName : "Crear Kit");
+        FormWindowCustom form = new FormWindowCustom(isEdit ? "Edit: " + editingKitName : "Create Kit");
         
         String defPerm="", defCool="0", defPrice="0"; boolean defEco=false;
 
@@ -240,15 +237,15 @@ public class Main extends PluginBase implements Listener {
             defCool = String.valueOf(cfg.getInt("cooldown", 0));
             defPrice = String.valueOf(cfg.getDouble("price", 0));
             defEco = cfg.getBoolean("use-economy", false);
-            form.addElement(new ElementLabel("§eEditando: " + editingKitName));
+            form.addElement(new ElementLabel("§eEditing: " + editingKitName));
         } else {
-            form.addElement(new ElementInput("Nombre", "Ej: Vip"));
+            form.addElement(new ElementInput("Name", "Ex: Vip"));
         }
 
-        form.addElement(new ElementInput("Permiso", "", defPerm));
+        form.addElement(new ElementInput("Permission", "", defPerm));
         form.addElement(new ElementInput("Cooldown (min)", "0", defCool));
-        form.addElement(new ElementInput("Precio", "0", defPrice));
-        form.addElement(new ElementToggle("Cobrar precio", defEco));
+        form.addElement(new ElementInput("Price", "0", defPrice));
+        form.addElement(new ElementToggle("Charge price", defEco));
         
         sendForm(player, form, (response) -> {
             if (response instanceof FormResponseCustom) {
@@ -262,7 +259,7 @@ public class Main extends PluginBase implements Listener {
                 boolean eco = data.getToggleResponse(isEdit ? 4 : 4);
 
                 if (!isEdit) {
-                    if (name == null || name.trim().isEmpty()) { player.sendMessage("§cFalta nombre"); return; }
+                    if (name == null || name.trim().isEmpty()) { player.sendMessage("§cMissing name"); return; }
                     if (new File(kitsFolder, name + ".yml").exists()) { player.sendMessage(getMessage("kit-exists")); return; }
                 }
                 saveKit(player, name, perm, cooldown, price, eco, isEdit);
@@ -276,7 +273,7 @@ public class Main extends PluginBase implements Listener {
             if (file.delete()) {
                 p.sendMessage(getMessage("kit-deleted").replace("%kit%", kitName));
             } else {
-                p.sendMessage("§cError: No se pudo eliminar el archivo del sistema.");
+                p.sendMessage("§cError: Could not delete the file from the system.");
             }
         } else {
             p.sendMessage(getMessage("kit-not-found"));
@@ -290,7 +287,7 @@ public class Main extends PluginBase implements Listener {
             kitCfg.set("cooldown", Integer.parseInt(cdStr.isEmpty() ? "0" : cdStr));
             kitCfg.set("price", Double.parseDouble(prStr.isEmpty() ? "0" : prStr));
             kitCfg.set("use-economy", eco);
-        } catch (Exception e) { p.sendMessage("§cError en números."); return; }
+        } catch (Exception e) { p.sendMessage("§cError in numbers."); return; }
 
         if (!isEdit && tempInventory.containsKey(p.getName())) {
             List<String> itemsList = new ArrayList<>();
