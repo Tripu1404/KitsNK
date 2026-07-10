@@ -1,5 +1,5 @@
 messages:
-  prefix: "§l§b[AdvancedKits] §r"
+  prefix: "§l§b[AnchorKits] §r"
   no-permission: "§cLo siento, no tienes permisos para reclamar este kit."
   cooldown: "§c¡Espera! Debes aguardar %time% minutos para volver a usar este kit."
   insufficient-money: "§cNo tienes suficiente dinero. Necesitas $%cost% para obtener este kit."
